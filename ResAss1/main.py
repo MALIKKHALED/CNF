@@ -167,9 +167,57 @@ def remove_double_negation(statement):
         statement = statement.replace('', '')
     return statement
 
+def get_unique_variable(used_variables):
+    # Generate a new variable that is not used before
+    for i in range(ord('a'), ord('z')+1):
+        new_variable = chr(i)
+        if new_variable not in used_variables:
+            return new_variable
+    return None
 
-# Example usage of remove_double_negation
-statement = '(P & Q)'
-print("Original Statement:", statement)
-new_statement = remove_double_negation(statement)
-print("After Removing Double Negation:", new_statement)
+def Standardize_variable_scope(expression):
+    # Regular expression pattern to match ∀ or ∃ followed by variables
+    pattern = r'(∀|∃)[a-zA-Z]+'
+
+    # Find all parts separated by '&'
+    parts = re.split(r'\s*&\s*(?=∃|∀)', expression)
+
+    replaced_parts = []
+    used_variables = set()
+    for part in parts:
+        # Extract the variable after the first ∀ or ∃
+        match = re.search(pattern, part)
+        if match:
+            old_expression = match.group(0)
+            old_variable = old_expression[1:]  # Extract variable from the matched expression
+            new_variable = get_unique_variable(used_variables)
+            if new_variable:
+                used_variables.add(new_variable)
+                replaced_part = part.replace(old_variable, new_variable)
+                replaced_part = replaced_part.replace(old_expression, old_expression[0] + new_variable)
+                replaced_parts.append(replaced_part)
+            else:
+                print("Error: No more unique variables available.")
+                return None
+        else:
+            replaced_parts.append(part)
+
+    # Join the replaced parts back using '&'
+    replaced_expression = ' & '.join(replaced_parts)
+    return replaced_expression
+
+
+# Example expression
+expression = "∀x.∃y.((P(x) & Q(y)) => R(x, y)) & ∀x.(P(x) => Q(y)) & ∃x.((P(x) & Q(y)) => R(x, y))"
+print("Original Expression:", expression)
+
+# Standardize variable scope
+standardized_expression = Standardize_variable_scope(expression)
+print("After Standardizing Variable Scope:", standardized_expression)
+
+
+# # Example usage of remove_double_negation
+# statement = '(P & Q)'
+# print("Original Statement:", statement)
+# new_statement = remove_double_negation(statement)
+# print("After Removing Double Negation:", new_statement)
