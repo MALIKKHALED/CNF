@@ -1,179 +1,36 @@
-class Expression:
-    IMPLICATION = '=>'
-    IFF = '<=>'
-    OR = '|'
-    AND = '&'
-    NEG = '~'
-    FORALL = '∀'
-    EXISTS = '∃'
-
-    def _init_(self, op, *args):
-        self.op = op
-        self.args = args
-
-    def _repr_(self):
-        if self.op == self.NEG:
-            return f'{self.op}{self.args[0]}'
-        elif len(self.args) == 2:
-            return f'({self.args[0]} {self.op} {self.args[1]})'
-        else:
-            return f'({self.op} {self.args[0]})'
+import re
 
 
-def eliminate_implication(expression):
-    assert isinstance(expression, Expression)
-    if expression.op == Expression.IMPLICATION:
-        return Expression(Expression.OR,
-                          Expression(Expression.NEG, expression.args[0]), expression.args[1])
-    elif expression.op == Expression.IFF:
-        return Expression(Expression.AND,
-                          Expression(Expression.OR,
-                                     Expression(Expression.NEG, expression.args[0]), expression.args[1]),
-                          Expression(Expression.OR,
-                                     Expression(Expression.NEG, expression.args[1]), expression.args[0]))
+def Eliminate_implication(expression):
+    pattern = r'(¬?)([(A-Za-z)]+)\s*=>\s*(¬?)([(A-Za-z)]+)'
+    expression = re.sub(pattern, r'¬\1\2 | \3\4', expression)
+    pattern = r'(¬?)([(A-Za-z)]+)\s*<=>\s*(¬?)([(A-Za-z)]+)'
+    expression = re.sub(pattern, r'(¬\1\2 | \3\4) & (\1\2 | ¬\3\4)', expression)
     return expression
 
 
-# Example expression: (P => Q)
-expression = Expression(Expression.IMPLICATION, 'P', 'Q')
-print("Original Expression:", expression)
-
-# Apply eliminate_implication function
-new_expression = eliminate_implication(expression)
-print("After Eliminating Implication:", new_expression)
-
-
-def move_negation_inward(expression):
-    assert isinstance(expression, Expression)
-    if expression.op == Expression.NEG:
-        inner_op = expression.args[0].op
-        inner_args = expression.args[0].args
-        if inner_op == Expression.NEG:
-            return inner_args[0]  # Double negation elimination
-        elif inner_op == Expression.AND:
-            return Expression(Expression.OR, Expression(Expression.NEG, inner_args[0]),
-                              Expression(Expression.NEG, inner_args[1]))  # De Morgan's Law for AND
-        elif inner_op == Expression.OR:
-            return Expression(Expression.AND, Expression(Expression.NEG, inner_args[0]),
-                              Expression(Expression.NEG, inner_args[1]))  # De Morgan's Law for OR
+def DeMorgans_laws(expression):
+    pattern1 = r'¬\((.*?)\s*&\s*(.*?)\)'
+    pattern2 = r'¬\((.*?)\s*\|\s*(.*?)\)'
+    expression = re.sub(pattern1, r'(¬\1 | ¬\2)', expression)
+    expression = re.sub(pattern2, r'(¬\1 & ¬\2)', expression)
     return expression
 
 
-# Example expression: ¬(P & Q)
-expression = Expression(Expression.NEG, Expression(Expression.AND, 'P', 'Q'))
-print("Original Expression:", expression)
+def remove_double_negation(expression):
+    while '¬¬' in expression:
+        expression = expression.replace('¬¬', '')
+    return expression
 
-# Apply move_negation_inward function
-new_expression = move_negation_inward(expression)
-print("After Moving Negation Inward:", new_expression)
-
-from sympy import symbols, Or, And, Not, to_cnf
-
-# Define symbolic variables
-P, Q, R = symbols('P Q R')
-
-# Logical expression
-logical_expr = Or(And(P, Q), Not(R))
-
-# Convert to CNF
-cnf_expr = to_cnf(logical_expr)
-
-# Print CNF expression
-print("CNF Expression:", cnf_expr)
-
-
-class Expression:
-    FORALL = '∀'
-    EXISTS = '∃'
-    NEG = '~'
-
-    def _init_(self, op, var, formula=None):
-        self.op = op
-        self.var = var
-        self.formula = formula
-
-    def _repr_(self):
-        return f'{self.op}{self.var}.{self.formula}'
-
-
-def move_quantifiers(expression):
-    def helper(expr, quantifiers):
-        if expr.op in [Expression.FORALL, Expression.EXISTS]:
-            quantifiers.append(expr)
-            return helper(expr.formula, quantifiers)
-        else:
-            return expr, quantifiers
-
-    _, quantifiers = helper(expression, [])
-
-    prenex_expression = quantifiers[0]
-    for q in quantifiers[1:]:
-        prenex_expression = Expression(q.op, q.var, prenex_expression)
-
-    return prenex_expression
-
-
-# Example expression
-expression = Expression(Expression.EXISTS, 'x', Expression(Expression.FORALL, 'y', Expression(Expression.NEG, 'P')))
-
-# Convert to prenex form
-prenex_expression = move_quantifiers(expression)
-
-# Print result
-print("Original Expression:", expression)
-print("After Moving Quantifiers:", prenex_expression)
-
-
-class Expression:
-    FORALL = '∀'
-    EXISTS = '∃'
-    NEG = '~'
-
-    def _init_(self, op, var, formula=None):
-        self.op = op
-        self.var = var
-        self.formula = formula
-
-    def _repr_(self):
-        return f'{self.op}{self.var}.{self.formula}' if self.op in [Expression.FORALL,
-                                                                    Expression.EXISTS] else f'{self.op}{self.formula}'
-
-
-def remove_universal_quantifiers(expression):
-    if expression.op == Expression.FORALL:
-        return remove_universal_quantifiers(expression.formula)
-    elif expression.op == Expression.EXISTS:
-        return Expression(Expression.EXISTS, expression.var, remove_universal_quantifiers(expression.formula))
-    else:
-        if expression.formula is not None:
-            return Expression(expression.op, expression.var, remove_universal_quantifiers(expression.formula))
-        else:
-            return Expression(expression.op, expression.var)
-
-
-# Example expression
-expression = Expression(Expression.EXISTS, 'x', Expression(Expression.FORALL, 'y', Expression(Expression.NEG, 'P')))
-
-# Remove universal quantifiers
-quantifier_removed_expression = remove_universal_quantifiers(expression)
-
-# Print result
-print("Original Expression:", expression)
-print("Expression with Universal Quantifiers Removed:", quantifier_removed_expression)
-
-
-def remove_double_negation(statement):
-    while '' in statement:
-        statement = statement.replace('', '')
-    return statement
 
 def get_unique_variable(used_variables):
     # Generate a new variable that is not used before
-    for i in range(ord('a'), ord('z')+1):
+    for i in range(ord('a'), ord('z') + 1):
         new_variable = chr(i)
         if new_variable not in used_variables:
             return new_variable
     return None
+
 
 def Standardize_variable_scope(expression):
     # Regular expression pattern to match ∀ or ∃ followed by variables
@@ -181,7 +38,6 @@ def Standardize_variable_scope(expression):
 
     # Find all parts separated by '&'
     parts = re.split(r'\s*&\s*(?=∃|∀)', expression)
-
     replaced_parts = []
     used_variables = set()
     for part in parts:
@@ -207,17 +63,48 @@ def Standardize_variable_scope(expression):
     return replaced_expression
 
 
-# Example expression
-expression = "∀x.∃y.((P(x) & Q(y)) => R(x, y)) & ∀x.(P(x) => Q(y)) & ∃x.((P(x) & Q(y)) => R(x, y))"
-print("Original Expression:", expression)
+def prenex_form(expression):
+    pattern = r'∀[a-zA-Z]|∃[a-zA-Z]+'
+    pattern1 = r'∀[a-zA-Z]+'
+    pattern2 = r'∃[a-zA-Z]+'
+    match1 = re.findall(pattern1, expression)
+    match2 = re.findall(pattern2, expression)
 
-# Standardize variable scope
-standardized_expression = Standardize_variable_scope(expression)
-print("After Standardizing Variable Scope:", standardized_expression)
+    expression = re.sub(pattern, '', expression)
+    expression = ' '.join(match1) + " " + ' '.join(match2) + expression
+
+    return expression
 
 
-# # Example usage of remove_double_negation
-# statement = '(P & Q)'
-# print("Original Statement:", statement)
-# new_statement = remove_double_negation(statement)
-# print("After Removing Double Negation:", new_statement)
+def Skolemization_for_existential_quantifiers(expression):
+    # Regular expression pattern to match ∃ followed by variables
+    pattern = r'∃[a-zA-Z]+'
+    pattern2 = r'∀([a-zA-Z]+)\s∃([a-zA-Z]+)'
+    match = re.findall(pattern2, expression)
+    expression = re.sub(pattern, '', expression)
+    for i in match:
+        var1 = i[0]
+        var2 = i[1]
+        expression = expression.replace(var2, "f(" + var1 + ")")
+    return expression
+
+
+def Eliminate_universal_quantifiers(expression):
+    pattern = r'∀[a-zA-Z]+'
+    match = re.findall(pattern, expression)
+    expression = re.sub(pattern, '', expression)
+    return expression
+
+
+def CNF_Algorithm(expression):
+    expression = Eliminate_implication(expression)
+    expression = DeMorgans_laws(expression)
+    expression = remove_double_negation(expression)
+    expression = Standardize_variable_scope(expression)
+    expression = Skolemization_for_existential_quantifiers(expression)
+    expression = prenex_form(expression)
+    expression = Eliminate_universal_quantifiers(expression)
+    return expression
+
+
+print(CNF_Algorithm("∀x (¬P(x) => Q(x)) & ∀x ∃y ((S(x) | R(y)) & ∀x ∃z (S(x) <=> R(z))"))
